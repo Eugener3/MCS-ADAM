@@ -64,13 +64,21 @@ export class MinecraftService {
             name: 'XUERVER',
             manager: this.dataSource.manager,
           });
-
-          await this.bot.sendMessage(
-            chatId,
-            `Сервер ${serverStatus.name} активен!\n
-Онлайн: ${serverStatus.online}/${serverStatus.max}\n
-Игроки: ${serverStatus.users.map((user) => user.name).join(', ') || 'Нет игроков'}`,
-          );
+          if(serverStatus.status) {
+            await this.bot.sendMessage(
+              chatId,
+              `Сервер ${serverStatus.name} активен!\n
+  Онлайн: ${serverStatus.online}/${serverStatus.max}\n
+  Игроки: ${serverStatus.users.map((user) => user.name).join(', ') || 'Нет игроков'}`,
+            );
+          }
+          else {
+            await this.bot.sendMessage(
+              chatId,
+              `Сервер ${serverStatus.name} не активен((((\n`,
+            );
+          }
+          
         } catch (error) {
           await this.bot.sendMessage(chatId, 'Сервер недоступен.');
         }
