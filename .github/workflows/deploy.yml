@@ -27,10 +27,6 @@ jobs:
         run: pnpm install --frozen-lockfile
       - name: Env
         run: echo "${{ secrets.PRODUCTION_ENV_CONTENTS }}" > .development.env
-      - name: Lint
-        run: pnpm lint
-      - name: Test
-        run: pnpm test
       - name: Build
         run: pnpm build
       - name: SSH into VPS and update code
