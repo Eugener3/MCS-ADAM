@@ -34,7 +34,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: server
+    container_name: minecraft
     restart: always
     environment:
       - PORT=${PORT}
