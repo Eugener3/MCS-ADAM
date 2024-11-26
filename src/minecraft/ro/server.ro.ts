@@ -1,5 +1,5 @@
 import { ApiProperty } from "@nestjs/swagger";
-import ResponseRo from "src/common/ro/Response.ro";
+import ResponseRo from "src/common/ro/response.ro";
 import { Expose, Type } from 'class-transformer';
 import { ServerModel } from "../models/server.model";
 import { UserModel } from "../models/user.model";
