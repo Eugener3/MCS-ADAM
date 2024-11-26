@@ -13,8 +13,6 @@ services:
       - /var/pgdata:/var/lib/postgresql/data
     ports:
       - '5432:5432'
-    networks:
-      - api
 
   pgadmin:
     image: dpage/pgadmin4
