@@ -1,0 +1,66 @@
+name: Deploy CI
+
+on:
+  push:
+    branches:
+      - main
+jobs:
+  deploy:
+    runs-on: ubuntu-22.04
+    strategy:
+      matrix:
+        node: ['20.x']
+    steps:
+      - name: Checkout source code
+        uses: actions/checkout@v3
+      - name: Install pnpm
+        run: npm install -g pnpm
+      - name: Set up Node.js
+        uses: actions/setup-node@v3
+        with:
+          cache: 'pnpm'
+      - name: Use Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: ${{ matrix.node }}
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Env
+        run: echo "${{ secrets.PRODUCTION_ENV_CONTENTS }}" > .development.env
+      - name: Lint
+        run: pnpm lint
+      - name: Test
+        run: pnpm test
+      - name: Build
+        run: pnpm build
+      - name: SSH into VPS and update code
+        uses: appleboy/ssh-action@master
+        with:
+          port: ${{ secrets.SSH_PORT }}
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USERNAME }}
+          key: ${{ secrets.SSH_DEPLOY_KEY }}
+          script_stop: true
+          script: |
+            set -e
+
+
+            if [ ! -d "/opt/app/server" ]; then
+            git clone git@server.github.com:EVENTON-APP/server.git /opt/app/server
+            fi
+
+            cd /opt/app/server
+
+            git fetch origin main
+            git reset --hard origin/main
+
+            echo "${{ secrets.PRODUCTION_ENV_CONTENTS }}" > /opt/app/server/.production.env
+
+            docker system prune -af
+
+            docker compose --env-file .production.env down
+            docker compose --env-file .production.env pull
+
+            docker compose --env-file .production.env up -d --build
+
+            docker ps -a
