@@ -41,9 +41,7 @@ jobs:
             set -e
 
 
-            if [ ! -d "/opt/app/server" ]; then
             git clone git@github.com:Eugener3/MCS-ADAM.git /opt/app/server
-            fi
 
             cd /opt/app/server
 
