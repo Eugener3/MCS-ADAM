@@ -24,7 +24,7 @@ export class TaskService{
     });
     if (server) {
       this.logger.log(`Minecraft сервер ${server.name} активен.`);
-      this.logger.log(`Игроков онлайн: ${server.online}/${server.max}`);
+      this.logger.log(`Игроков онлайн: ${server.online}/${server.max}.`);
     } else this.logger.warn('Minecraft сервер не отвечает.');
   }
 }
