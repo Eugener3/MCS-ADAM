@@ -184,6 +184,23 @@ export class MinecraftService {
     }
   }
 
+  public async updateStatus(
+    manager: EntityManager,
+    status: boolean,
+  ): Promise<void> {
+    const existingServer = await this.getOrThrow({
+      name: 'XUERVER',
+      manager,
+    });
+    await manager.update(
+      ServerModel,
+      { id: existingServer.id },
+      {
+        status,
+      },
+    );
+  }
+
   async checkServerStatus(
     manager: EntityManager,
     host: string,
@@ -221,10 +238,12 @@ export class MinecraftService {
             })) || [],
         };
         await this.updateUsers(manager, newDto, dto.users);
+        await this.updateStatus(manager, true);
         return ServerType.from(newServer);
       } else {
         await this.update(manager, dto);
         await this.updateUsers(manager, dto, dto.users);
+        await this.updateStatus(manager, true);
         return ServerType.from(
           await this.get({
             manager: this.dataSource.manager,
@@ -233,6 +252,7 @@ export class MinecraftService {
         );
       }
     } catch (error) {
+      await this.updateStatus(manager, false);
       this.logger.error(`Сервер недоступен: ${error.message}`);
       throw new InternalServerErrorException('Сервер недоступен');
     }
