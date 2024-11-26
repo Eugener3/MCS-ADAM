@@ -20,18 +20,19 @@ services:
     image: dpage/pgadmin4
     restart: always
     container_name: pgadmin4
+    environment:
+      - PGADMIN_DEFAULT_EMAIL=${PGADMIN_DEFAULT_EMAIL}
+      - PGADMIN_DEFAULT_PASSWORD=${PGADMIN_DEFAULT_PASSWORD}
     ports:
       - '5050:80'
     depends_on:
       - db
-    networks:
-      - api
 
   app:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: minecraft
+    container_name: server
     restart: always
     environment:
       - PORT=${PORT}
