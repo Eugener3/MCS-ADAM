@@ -1,5 +1,7 @@
 import {
   ConflictException,
+  forwardRef,
+  Inject,
   Injectable,
   InternalServerErrorException,
   Logger,
@@ -11,12 +13,15 @@ import { ServerModel } from './models/server.model';
 import { ServerDto } from './dto/server.dto';
 import { ServerType } from './ro/server.ro';
 import { UserModel } from './models/user.model';
+import { TelegramService } from 'src/telegram/telegram.service';
 
 @Injectable()
 export class MinecraftService {
   private readonly logger = new Logger(MinecraftService.name);
 
   constructor(
+    @Inject(forwardRef(() => TelegramService))
+    private readonly telegramService: TelegramService,
     private readonly dataSource: DataSource,
   ) {}
 
@@ -196,6 +201,7 @@ export class MinecraftService {
       }
     } catch (error) {
       await this.updateStatus(manager, false);
+      await this.telegramService.sendBroadcastMessage('❌ Сервер, к сожалению, приостановил работу((( ❌', true);
       this.logger.error(`Сервер недоступен: ${error.message}`);
       throw new InternalServerErrorException('Сервер недоступен');
     }
