@@ -7,7 +7,7 @@ import {
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { MinecraftService } from 'src/minecraft/minecraft.service';
-import { DataSource } from 'typeorm';
+import { DataSource, EntityManager } from 'typeorm';
 import * as Bot from 'node-telegram-bot-api';
 import { BotCommands } from './enums/bot-commands.enum';
 import { ServerModel } from 'src/minecraft/models/server.model';
@@ -40,14 +40,7 @@ export class TelegramService implements OnModuleInit {
   private async handleStartCommand(msg: any) {
     try {
       return await this.dataSource.transaction(async (manager) => {
-        const user = await manager.save(
-          TelegramModel,
-          manager.create(TelegramModel, {
-            first_name: msg.from?.first_name || null,
-            username: msg.from?.username || null,
-            chatId: msg.chat.id,
-          }),
-        );
+        const user = await this.create(msg, manager);
         const firstName = msg.from?.first_name || 'друг';
         const welcomeMessage = `Привет, ${firstName}! 👋
   
@@ -157,9 +150,9 @@ export class TelegramService implements OnModuleInit {
   private async handleSubscribeAction(msg: any) {
     const chatId = msg.chat.id;
     return await this.dataSource.transaction(async (manager) => {
-      const user = await manager.findOne(TelegramModel, { where: { chatId } });
+      let user = await manager.findOne(TelegramModel, { where: { chatId } });
       if (!user) {
-        console.log(1);
+        user = await manager.findOne(TelegramModel, { where: { chatId } });
         return;
       }
       await manager.update(
@@ -179,9 +172,9 @@ export class TelegramService implements OnModuleInit {
   private async handleUnsubscribeAction(msg: any) {
     const chatId = msg.chat.id;
     return await this.dataSource.transaction(async (manager) => {
-      const user = await manager.findOne(TelegramModel, { where: { chatId } });
+      let user = await manager.findOne(TelegramModel, { where: { chatId } });
       if (!user) {
-        console.log(1);
+        user = await this.create(msg, manager);
         return;
       }
       await manager.update(
@@ -244,5 +237,16 @@ export class TelegramService implements OnModuleInit {
       }
       console.log('Рассылка завершена.');
     });
+  }
+
+  private async create(msg: any, manager: EntityManager) {
+    return await manager.save(
+      TelegramModel,
+      manager.create(TelegramModel, {
+        first_name: msg.from?.first_name || null,
+        username: msg.from?.username || null,
+        chatId: msg.chat.id,
+      }),
+    );
   }
 }
