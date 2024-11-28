@@ -11,80 +11,15 @@ import { ServerModel } from './models/server.model';
 import { ServerDto } from './dto/server.dto';
 import { ServerType } from './ro/server.ro';
 import { UserModel } from './models/user.model';
-import * as Bot from 'node-telegram-bot-api';
-import { ConfigService } from '@nestjs/config';
 
 @Injectable()
 export class MinecraftService {
   private readonly logger = new Logger(MinecraftService.name);
-  private readonly bot: Bot;
-  private readonly callback: string;
 
   constructor(
     private readonly dataSource: DataSource,
-    private readonly configService: ConfigService,
-  ) {
-    this.bot = new Bot(this.configService.getOrThrow('TG_TOKEN'), {
-      polling: true,
-    });
-    this.callback = this.configService.getOrThrow('TELEGRAM_CALLBACK');
-  }
+  ) {}
 
-  public async onModuleInit() {
-    // Обработка команд /start
-    this.bot.onText(/\/start/, async (msg) => {
-      try {
-        await this.bot.sendMessage(
-          msg.chat.id,
-          `Привет, ${msg.from?.first_name || 'друг'}! 👋
-
-Я отслеживаю статус Minecraft сервера. Нажми на кнопку "Инфа о сервере 📊", чтобы узнать текущую информацию.`,
-          {
-            reply_markup: {
-              keyboard: [
-                [{ text: 'Инфа о сервере 📊' }], // Кнопка в основной панели
-              ],
-              resize_keyboard: true, // Автоматическая подстройка под размер экрана
-              one_time_keyboard: false, // Клавиатура остаётся на экране
-            },
-          },
-        );
-      } catch (error) {
-        console.error('Ошибка отправки сообщения:', error.message);
-      }
-    });
-
-    // Обработка нажатия кнопки "Инфа о сервере"
-    this.bot.on('message', async (msg) => {
-      if (msg.text === 'Инфа о сервере 📊') {
-        const chatId = msg.chat.id;
-        try {
-          // Получение статуса сервера через MinecraftService
-          const serverStatus = await this.getOrThrow({
-            name: 'XUERVER',
-            manager: this.dataSource.manager,
-          });
-          if(serverStatus.status) {
-            await this.bot.sendMessage(
-              chatId,
-              `Сервер ${serverStatus.name} активен!\n
-  Онлайн: ${serverStatus.online}/${serverStatus.max}\n
-  Игроки: ${serverStatus.users.map((user) => user.name).join(', ') || 'Нет игроков'}`,
-            );
-          }
-          else {
-            await this.bot.sendMessage(
-              chatId,
-              `Сервер ${serverStatus.name} не активен((((\n`,
-            );
-          }
-          
-        } catch (error) {
-          await this.bot.sendMessage(chatId, 'Сервер недоступен.');
-        }
-      }
-    });
-  }
 
   async get({
     name,
