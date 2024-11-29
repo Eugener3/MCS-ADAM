@@ -14,16 +14,21 @@ import { ServerDto } from './dto/server.dto';
 import { ServerType } from './ro/server.ro';
 import { UserModel } from './models/user.model';
 import { TelegramService } from 'src/telegram/telegram.service';
+import { ConfigService } from '@nestjs/config';
 
 @Injectable()
 export class MinecraftService {
   private readonly logger = new Logger(MinecraftService.name);
+  private readonly name: string;
 
   constructor(
     @Inject(forwardRef(() => TelegramService))
     private readonly telegramService: TelegramService,
     private readonly dataSource: DataSource,
-  ) {}
+    private readonly configService: ConfigService,
+  ) {
+    this.name = this.configService.getOrThrow('MINECRAFT_NAME');
+  }
 
 
   async get({
@@ -189,11 +194,11 @@ export class MinecraftService {
         await this.updateStatus(manager, true);
         return ServerType.from(newServer);
       } else {
-        await this.update(manager, dto);
-        await this.updateUsers(manager, dto, dto.users);
         if (existingServer.status === false) {
           await this.telegramService.sendBroadcastMessage('🟢 Сервер успешно начинает работать!!! 🟢', true);
         }
+        await this.update(manager, dto);
+        await this.updateUsers(manager, dto, dto.users);
         await this.updateStatus(manager, true);
         return ServerType.from(
           await this.get({
@@ -203,8 +208,14 @@ export class MinecraftService {
         );
       }
     } catch (error) {
+      const existingServer = await this.get({
+        manager: this.dataSource.manager,
+        name: this.name,
+      });
+      if (existingServer.status === true) {
+        await this.telegramService.sendBroadcastMessage('❌ Сервер, к сожалению, приостановил работу((( ❌', true);
+      }
       await this.updateStatus(manager, false);
-      await this.telegramService.sendBroadcastMessage('❌ Сервер, к сожалению, приостановил работу((( ❌', true);
       this.logger.error(`Сервер недоступен: ${error.message}`);
       throw new InternalServerErrorException('Сервер недоступен');
     }
