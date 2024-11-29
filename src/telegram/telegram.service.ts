@@ -40,7 +40,12 @@ export class TelegramService implements OnModuleInit {
   private async handleStartCommand(msg: any) {
     try {
       return await this.dataSource.transaction(async (manager) => {
-        const user = await this.create(msg, manager);
+        let user = await manager.findOne(TelegramModel, {
+          where: { chatId: msg.chat.id },
+        });
+        if (!user) {
+          user = await this.create(msg, manager);
+        }
         const firstName = msg.from?.first_name || 'друг';
         const welcomeMessage = `Привет, ${firstName}! 👋
   
@@ -153,7 +158,6 @@ export class TelegramService implements OnModuleInit {
       let user = await manager.findOne(TelegramModel, { where: { chatId } });
       if (!user) {
         user = await manager.findOne(TelegramModel, { where: { chatId } });
-        return;
       }
       await manager.update(
         TelegramModel,
@@ -175,7 +179,6 @@ export class TelegramService implements OnModuleInit {
       let user = await manager.findOne(TelegramModel, { where: { chatId } });
       if (!user) {
         user = await this.create(msg, manager);
-        return;
       }
       await manager.update(
         TelegramModel,
