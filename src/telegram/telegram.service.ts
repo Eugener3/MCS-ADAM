@@ -195,7 +195,7 @@ export class TelegramService implements OnModuleInit {
     const formattedDate = new Intl.DateTimeFormat('ru-RU', {
       dateStyle: 'medium',
       timeStyle: 'medium',
-      timeZone: 'Etc/GMT+1',
+      timeZone: 'Europe/Moscow',
     }).format(new Date(serverStatus.updated_at));
 
     const players =
