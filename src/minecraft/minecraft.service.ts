@@ -191,6 +191,9 @@ export class MinecraftService {
       } else {
         await this.update(manager, dto);
         await this.updateUsers(manager, dto, dto.users);
+        if (existingServer.status === false) {
+          await this.telegramService.sendBroadcastMessage('🟢 Сервер успешно начинает работать!!! 🟢', true);
+        }
         await this.updateStatus(manager, true);
         return ServerType.from(
           await this.get({
