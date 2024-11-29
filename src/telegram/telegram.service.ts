@@ -134,6 +134,9 @@ export class TelegramService implements OnModuleInit {
     const chatId = msg.chat.id;
     return await this.dataSource.transaction(async (manager) => {
       let user = await manager.findOne(TelegramModel, { where: { chatId } });
+      if (!user) {
+        user = await this.create(msg, manager);
+      }
       await this.bot.sendMessage(
         chatId,
         `Вы можете подписаться/отписаться на изменение статуса сервера!`,
@@ -157,7 +160,7 @@ export class TelegramService implements OnModuleInit {
     return await this.dataSource.transaction(async (manager) => {
       let user = await manager.findOne(TelegramModel, { where: { chatId } });
       if (!user) {
-        user = await manager.findOne(TelegramModel, { where: { chatId } });
+        user = await this.create(msg, manager);
       }
       await manager.update(
         TelegramModel,
