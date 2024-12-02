@@ -2,9 +2,9 @@ import { ApiProperty } from "@nestjs/swagger";
 import ResponseRo from "src/common/ro/response.ro";
 import { Expose, Type } from 'class-transformer';
 import { ServerModel } from "../models/server.model";
-import { UserModel } from "../models/user.model";
+import { UserModel } from "../../users/models/user.model";
 
-export class UserType {
+class UserType {
 
 	public static from(user: UserModel): Readonly<UserType> {
 		const instance = new UserType();
@@ -18,13 +18,13 @@ export class UserType {
         example: '126f8002-a996-38e2-8c4c-a0467ba2bc13',
         description: 'Unique user-server ID',
     })
-    userServerId: string;
+    public userServerId: string;
 
     @ApiProperty({
         example: 'Bebrik',
         description: 'Users name',
     })
-    name: string;
+    public name: string;
 
     @ApiProperty({ description: 'Created at timestamp.' })
 	@Expose()

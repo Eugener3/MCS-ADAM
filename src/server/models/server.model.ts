@@ -1,7 +1,7 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { DefaultEntity } from 'src/common/entities/default.entity';
 import { Column, Entity, OneToMany, PrimaryColumn } from 'typeorm';
-import { UserModel } from './user.model';
+import { UserModel } from '../../users/models/user.model';
 
 @Entity({ name: 'servers' })
 export class ServerModel extends DefaultEntity {

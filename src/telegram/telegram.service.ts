@@ -12,6 +12,8 @@ import * as Bot from 'node-telegram-bot-api';
 import { BotCommands } from './enums/bot-commands.enum';
 import { ServerModel } from 'src/server/models/server.model';
 import { TelegramModel } from './models/telegram.model';
+import { UsersService } from 'src/users/users.service';
+import { UserType } from 'src/users/ro/user.ro';
 
 @Injectable()
 export class TelegramService implements OnModuleInit {
@@ -24,6 +26,7 @@ export class TelegramService implements OnModuleInit {
     private readonly serverService: ServerService,
     private readonly dataSource: DataSource,
     private readonly configService: ConfigService,
+    private readonly usersService: UsersService,
   ) {
     this.name = this.configService.getOrThrow('MINECRAFT_NAME');
     this.bot = new Bot(this.configService.getOrThrow('TG_TOKEN'), {
@@ -118,9 +121,10 @@ export class TelegramService implements OnModuleInit {
         name: this.name,
         manager: this.dataSource.manager,
       });
+      const players = await this.usersService.gets({ manager: this.dataSource.manager, status: true })
 
       const message = serverStatus.status
-        ? this.getActiveServerMessage(serverStatus)
+        ? this.getActiveServerMessage(serverStatus, players)
         : `Сервер ${serverStatus.name} не активен. 😞`;
 
       await this.bot.sendMessage(chatId, message);
@@ -194,19 +198,20 @@ export class TelegramService implements OnModuleInit {
     });
   }
 
-  private getActiveServerMessage(serverStatus: ServerModel): string {
+  private getActiveServerMessage(serverStatus: ServerModel, players: UserType[]): string {
     const formattedDate = new Intl.DateTimeFormat('ru-RU', {
       dateStyle: 'medium',
       timeStyle: 'medium',
       timeZone: 'Europe/Moscow',
     }).format(new Date(serverStatus.updated_at));
-
-    const players =
-      serverStatus.users.map((user) => user.name).join(', ') || 'Нет игроков';
     return `Сервер ${serverStatus.name} активен! 🎉
 
 Онлайн: ${serverStatus.online}/${serverStatus.max}
-Игроки: ${players}
+Игроки: ${
+  players.map(player =>{
+    return player.name;
+  })
+}
 
 Последнее обновление статуса: ${formattedDate}`;
   }

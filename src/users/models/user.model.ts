@@ -1,7 +1,7 @@
 import { ApiProperty } from "@nestjs/swagger";
 import { DefaultEntity } from "src/common/entities/default.entity";
 import { Column, Entity, JoinColumn, ManyToOne, PrimaryColumn } from "typeorm";
-import { ServerModel } from "./server.model";
+import { ServerModel } from "../../server/models/server.model";
 
 @Entity({ name: 'users' })
 export class UserModel extends DefaultEntity {
@@ -18,6 +18,14 @@ export class UserModel extends DefaultEntity {
 	})
 	@Column({ type: 'varchar' })
 	public readonly name: string;
+
+
+	@ApiProperty({
+		example: true,
+		description: 'Status of the user',
+	})
+	@Column({ type: 'boolean', default: true })
+	public readonly status: boolean;
 
     @ApiProperty({
         example: '126f8002-a996-38e2-8c4c-a0467ba2bc13',
