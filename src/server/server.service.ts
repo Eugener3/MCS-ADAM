@@ -17,8 +17,8 @@ import { TelegramService } from 'src/telegram/telegram.service';
 import { ConfigService } from '@nestjs/config';
 
 @Injectable()
-export class MinecraftService {
-  private readonly logger = new Logger(MinecraftService.name);
+export class ServerService {
+  private readonly logger = new Logger(ServerService.name);
   private readonly name: string;
 
   constructor(

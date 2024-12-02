@@ -1,20 +1,22 @@
 import { Module } from '@nestjs/common';
-import { MinecraftModule } from './minecraft/minecraft.module';
+import { ServerModule } from './server/server.module';
 import { ScheduleModule } from '@nestjs/schedule';
 import { TaskService } from './task.service';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { EnvFilePathModule } from './providers/envpiflepath.module';
 import { PostgresModule } from './providers/postgres.module';
 import { TelegramModule } from './telegram/telegram.module';
+import { UsersModule } from './users/users.module';
 
 @Module({
   imports: [
-    MinecraftModule,
+    ServerModule,
     ScheduleModule.forRoot(),
     TypeOrmModule.forFeature(),
     EnvFilePathModule,
 		PostgresModule,
     TelegramModule,
+    UsersModule,
   ],
   providers: [TaskService]
 })

@@ -1,13 +1,13 @@
 import { forwardRef, Module } from '@nestjs/common';
 import { TelegramService } from './telegram.service';
-import { MinecraftModule } from 'src/minecraft/minecraft.module';
+import { ServerModule } from 'src/server/server.module';
 import { TelegramModel } from './models/telegram.model';
 import { TypeOrmModule } from '@nestjs/typeorm';
 
 @Module({
   providers: [TelegramService],
   imports: [
-    forwardRef(() => MinecraftModule),
+    forwardRef(() => ServerModule),
     TypeOrmModule.forFeature([
       TelegramModel,
     ]),

@@ -6,11 +6,11 @@ import {
   OnModuleInit,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { MinecraftService } from 'src/minecraft/minecraft.service';
+import { ServerService } from 'src/server/server.service';
 import { DataSource, EntityManager } from 'typeorm';
 import * as Bot from 'node-telegram-bot-api';
 import { BotCommands } from './enums/bot-commands.enum';
-import { ServerModel } from 'src/minecraft/models/server.model';
+import { ServerModel } from 'src/server/models/server.model';
 import { TelegramModel } from './models/telegram.model';
 
 @Injectable()
@@ -20,8 +20,8 @@ export class TelegramService implements OnModuleInit {
   private readonly bot: Bot;
 
   constructor(
-    @Inject(forwardRef(() => MinecraftService))
-    private readonly minecraftService: MinecraftService,
+    @Inject(forwardRef(() => ServerService))
+    private readonly serverService: ServerService,
     private readonly dataSource: DataSource,
     private readonly configService: ConfigService,
   ) {
@@ -114,7 +114,7 @@ export class TelegramService implements OnModuleInit {
   private async handleStatusCommand(msg: any) {
     const chatId = msg.chat.id;
     try {
-      const serverStatus = await this.minecraftService.getOrThrow({
+      const serverStatus = await this.serverService.getOrThrow({
         name: this.name,
         manager: this.dataSource.manager,
       });
