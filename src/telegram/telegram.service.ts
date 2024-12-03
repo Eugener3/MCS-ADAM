@@ -3,6 +3,7 @@ import {
   Inject,
   Injectable,
   Logger,
+  NotFoundException,
   OnModuleInit,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
@@ -223,27 +224,55 @@ export class TelegramService implements OnModuleInit {
     return await this.dataSource.transaction(async (manager) => {
 
       // Получаем пользователей согласно условию
-      const users = await this.gets({ manager, isSubscribed });
-      console.log(`Отправляем сообщение ${users.length} пользователям.`);
+      const telegrams = await this.gets({ manager, isSubscribed });
+      console.log(`Отправляем сообщение ${telegrams.length} пользователям.`);
 
-      for (const user of users) {
+      for (const telegram of telegrams) {
         try {
-          await this.bot.sendMessage(user.chatId, message);
-          console.log(`Сообщение отправлено пользователю ${user.chatId}`);
+          await this.bot.sendMessage(telegram.chatId, message);
+          console.log(`Сообщение отправлено пользователю ${telegram.chatId}`);
         } catch (error) {
           console.error(
-            `Ошибка отправки сообщения пользователю ${user.chatId}:`,
+            `Ошибка отправки сообщения пользователю ${telegram.chatId}:`,
             error.message,
           );
 
           // Если нужно, можно обновить статус пользователя (например, отключить подписку)
           if (error.response?.statusCode === 403) {
-            await manager.delete(TelegramModel, { id: user.id });
-            console.log(`Пользователь ${user.chatId} удалён.`);
+            await manager.delete(TelegramModel, { id: telegram.id });
+            console.log(`Пользователь ${telegram.chatId} удалён.`);
           }
         }
       }
       console.log('Рассылка завершена.');
+    });
+  }
+
+  public async sendPersonalMessage(
+    message: string,
+    username: string,
+  ): Promise<void> {
+    return await this.dataSource.transaction(async (manager) => {
+
+      // Получаем пользователей согласно условию
+      const telegram = await manager.findOne(TelegramModel, { where: { username } });
+      if (!telegram)
+        throw new NotFoundException('Telegram not found.');
+
+        try {
+          await this.bot.sendMessage(telegram.chatId, message);
+          console.log(`Сообщение отправлено пользователю ${telegram.chatId}`);
+        } catch (error) {
+          console.error(
+            `Ошибка отправки сообщения пользователю ${telegram.chatId}:`,
+            error.message,
+          );
+
+          if (error.response?.statusCode === 403) {
+            await manager.delete(TelegramModel, { id: telegram.id });
+            console.log(`Пользователь ${telegram.chatId} удалён.`);
+          }
+        }
     });
   }
 

@@ -1,10 +1,11 @@
 import { ApiProperty } from "@nestjs/swagger";
-import { ListTelegramsDto } from "./list.dto";
+import { MessageDto } from "./message.dto";
 
-export class BroadCastDto extends ListTelegramsDto {
+export class BroadCastDto extends MessageDto {
     @ApiProperty({
-        default: 'default message',
-        description: 'Message to broadcast',
+        default: false,
+        description: 'Whether to subscribe to the broadcast messages',
+        required: false,
     })
-    message: string;
+    isSubscribed?: boolean;
 }
