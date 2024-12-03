@@ -7,7 +7,7 @@ import {
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { ServerService } from 'src/server/server.service';
-import { DataSource, EntityManager } from 'typeorm';
+import { DataSource, EntityManager, FindOneOptions } from 'typeorm';
 import * as Bot from 'node-telegram-bot-api';
 import { BotCommands } from './enums/bot-commands.enum';
 import { ServerModel } from 'src/server/models/server.model';
@@ -221,12 +221,9 @@ export class TelegramService implements OnModuleInit {
     isSubscribed?: boolean,
   ): Promise<void> {
     return await this.dataSource.transaction(async (manager) => {
-      const whereCondition = isSubscribed !== undefined ? { isSubscribed } : {};
 
       // Получаем пользователей согласно условию
-      const users = await manager.find(TelegramModel, {
-        where: whereCondition,
-      });
+      const users = await this.gets({ manager, isSubscribed });
       console.log(`Отправляем сообщение ${users.length} пользователям.`);
 
       for (const user of users) {
@@ -249,6 +246,21 @@ export class TelegramService implements OnModuleInit {
       console.log('Рассылка завершена.');
     });
   }
+
+  async gets({
+    isSubscribed,
+    manager,
+  }: {
+    isSubscribed?: boolean;
+    manager: EntityManager;
+  }): Promise<TelegramModel[]> {
+    const options: FindOneOptions<TelegramModel> = {
+      where: { isSubscribed },
+    };
+
+    return await manager.find(TelegramModel, options);
+  }
+
 
   private async create(msg: any, manager: EntityManager) {
     return await manager.save(
