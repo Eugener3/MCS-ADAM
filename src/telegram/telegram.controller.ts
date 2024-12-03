@@ -5,6 +5,7 @@ import { DataSource } from 'typeorm';
 import { AuthGuard } from 'src/common/guards/auth.guard';
 import ResponseRo from 'src/common/ro/response.ro';
 import { TelegramDto } from './dto/telegram.dto';
+import { TelegramListDto } from './dto/list.dto';
 
 @UseGuards(AuthGuard)
 @Controller('telegram')
@@ -32,7 +33,7 @@ export class TelegramController {
         }
     }
     @Get('list')
-    public async telegrams(@Query() { isSubscribed }: BroadCastDto) {
+    public async telegrams(@Query() { isSubscribed }: TelegramListDto) {
         const telegrams = await this.telegramService.gets({ manager: this.dataSource.manager, isSubscribed });
         return {
             ok: true,
