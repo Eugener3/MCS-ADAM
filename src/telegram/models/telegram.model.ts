@@ -1,6 +1,8 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { DefaultEntity } from 'src/common/entities/default.entity';
-import { Column, Entity, PrimaryColumn } from 'typeorm';
+import { Column, Entity, OneToMany, PrimaryColumn } from 'typeorm';
+import { TelegramUserSubscriptionModel } from './telegram_user_subscription.model';
+import { ActionEnum } from '../enums/action.enum';
 
 @Entity({ name: 'telegrams' })
 export class TelegramModel extends DefaultEntity {
@@ -26,4 +28,14 @@ export class TelegramModel extends DefaultEntity {
   @ApiProperty({ description: 'Subscription status.' })
   @Column({ type: 'boolean', default: false })
   public readonly isSubscribed: boolean;
+
+  @ApiProperty({ description: 'Current action with bot' })
+  @Column({ nullable: true, type: 'enum', enum: ActionEnum })
+  public readonly currentAction: string;
+
+  @OneToMany(
+    () => TelegramUserSubscriptionModel,
+    (subscription) => subscription.telegram,
+  )
+  public readonly subscriptions: TelegramUserSubscriptionModel[];
 }

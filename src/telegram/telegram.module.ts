@@ -5,15 +5,18 @@ import { TelegramModel } from './models/telegram.model';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { TelegramController } from './telegram.controller';
 import { UsersModule } from 'src/users/users.module';
+import { TelegramUserSubscriptionModel } from './models/telegram_user_subscription.model';
+import { RequestMessageService } from './request-message.service';
 
 @Module({
-  providers: [TelegramService],
+  providers: [TelegramService, RequestMessageService],
   imports: [
     forwardRef(() => ServerModule),
     TypeOrmModule.forFeature([
       TelegramModel,
+      TelegramUserSubscriptionModel,
     ]),
-    UsersModule,
+    forwardRef(() => UsersModule),
   ],
   exports: [TelegramService],
   controllers: [TelegramController],

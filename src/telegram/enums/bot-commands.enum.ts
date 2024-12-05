@@ -5,4 +5,7 @@ export enum BotCommands {
     SUBSCRIBE_ACTION = 'Подписаться',
     UNSUBSCRIBE_ACTION = 'Отписаться',
     MENU = 'Меню',
+    SUBSCRIBE_USER = 'Слежка',
+    FOLLOW_USER='Следить за..',
+    UNFOLLOW_USER='Отписаться от..',
   }

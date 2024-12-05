@@ -1,205 +1,183 @@
-import {
-  forwardRef,
-  Inject,
-  Injectable,
-  Logger,
-  NotFoundException,
-  OnModuleInit,
-} from '@nestjs/common';
+import { Injectable, NotFoundException, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { ServerService } from 'src/server/server.service';
 import { DataSource, EntityManager, FindOneOptions } from 'typeorm';
 import * as Bot from 'node-telegram-bot-api';
 import { BotCommands } from './enums/bot-commands.enum';
 import { ServerModel } from 'src/server/models/server.model';
 import { TelegramModel } from './models/telegram.model';
-import { UsersService } from 'src/users/users.service';
 import { UserType } from 'src/users/ro/user.ro';
+import { RequestMessageService } from './request-message.service';
+import { UsersService } from 'src/users/users.service';
+import { ActionEnum } from './enums/action.enum';
+import { UserModel } from 'src/users/models/user.model';
+import { TelegramUserSubscriptionModel } from './models/telegram_user_subscription.model';
 
 @Injectable()
 export class TelegramService implements OnModuleInit {
-  private readonly logger = new Logger(TelegramService.name);
-  private readonly name: string;
   private readonly bot: Bot;
 
   constructor(
-    @Inject(forwardRef(() => ServerService))
-    private readonly serverService: ServerService,
     private readonly dataSource: DataSource,
     private readonly configService: ConfigService,
     private readonly usersService: UsersService,
+    private readonly requestMessageService: RequestMessageService,
   ) {
-    this.name = this.configService.getOrThrow('MINECRAFT_NAME');
     this.bot = new Bot(this.configService.getOrThrow('TG_TOKEN'), {
       polling: true,
     });
   }
 
   public async onModuleInit() {
-    this.bot.onText(/\/start/, this.handleStartCommand.bind(this));
+    this.bot.onText(/\/start/, async (msg) => {
+      await this.requestMessageService.handleStartCommand(this.bot, msg);
+    });
 
-    this.bot.on('message', this.handleMessage.bind(this));
-  }
-
-  private async handleStartCommand(msg: any) {
-    try {
-      return await this.dataSource.transaction(async (manager) => {
-        let user = await manager.findOne(TelegramModel, {
-          where: { chatId: msg.chat.id },
-        });
-        if (!user) {
-          user = await this.create(msg, manager);
-        }
-        const firstName = msg.from?.first_name || 'друг';
-        const welcomeMessage = `Привет, ${firstName}! 👋
-  
-  Я отслеживаю статус Minecraft сервера. Нажми на кнопку "${BotCommands.STATUS}", чтобы узнать текущую информацию.`;
-
-        await this.bot.sendMessage(msg.chat.id, welcomeMessage);
-        await this.handleStartMenu(msg);
-      });
-    } catch (error) {
-      console.error('Ошибка отправки сообщения:', error.message);
-    }
+    this.bot.on('message', async (msg) => {
+      await this.handleMessage(msg);
+    });
   }
 
   private async handleMessage(msg: any) {
     if (!msg.text) return;
+    const chatId = msg.chat.id;
+    return await this.dataSource.transaction(async (manager) => {
+      const telegram = await manager.findOne(TelegramModel, {
+        where: { chatId },
+      });
 
-    const command = msg.text.trim();
+      if (telegram?.currentAction === ActionEnum.AWAITING_FOLLOW_USERNAME) {
+        const targetUsername = msg.text.trim();
 
-    switch (command) {
-      case BotCommands.STATUS:
-        await this.handleStatusCommand(msg);
-        break;
-      case BotCommands.START:
-        break;
-      case BotCommands.SUBSCRIBE:
-        await this.handleSubscribeMenu(msg);
-        break;
+        if (targetUsername === BotCommands.MENU) {
+          await this.dataSource.manager.update(
+            TelegramModel,
+            { chatId: msg.chat.id },
+            { currentAction: null },
+          );
+          await this.requestMessageService.handleStartMenu(this.bot, msg);
+          return;
+        }
 
-      case BotCommands.SUBSCRIBE_ACTION:
-        await this.handleSubscribeAction(msg);
-        break;
+        const targetUser = await this.usersService.get({
+          manager: this.dataSource.manager,
+          name: targetUsername,
+        });
+        if (!targetUser) {
+          await this.bot.sendMessage(
+            chatId,
+            `Пользователь с никнеймом "${targetUsername}" не найден. Попробуйте снова или нажмите "Меню" для выбора действия.`,
+          );
+          return;
+        }
 
-      case BotCommands.UNSUBSCRIBE_ACTION:
-        await this.handleUnsubscribeAction(msg);
-        break;
-
-      case BotCommands.MENU:
-        await this.handleStartMenu(msg);
-        break;
-
-      default:
-        await this.bot.sendMessage(
-          msg.chat.id,
-          'Извиниcь, я не понимаю эту команду.',
+        await this.subscribe(manager, telegram, targetUser);
+        await this.dataSource.manager.update(
+          TelegramModel,
+          { chatId: msg.chat.id },
+          { currentAction: null },
         );
-        break;
-    }
-  }
-
-  private async handleStartMenu(msg: any) {
-    await this.bot.sendMessage(msg.chat.id, 'Выбирите действие', {
-      reply_markup: {
-        keyboard: [
-          [
-            { text: BotCommands.STATUS },
-            { text: BotCommands.SUBSCRIBE },
-            { text: BotCommands.START },
-          ],
-        ],
-        resize_keyboard: true,
-        one_time_keyboard: false,
-      },
-    });
-  }
-
-  private async handleStatusCommand(msg: any) {
-    const chatId = msg.chat.id;
-    try {
-      const serverStatus = await this.serverService.getOrThrow({
-        name: this.name,
-        manager: this.dataSource.manager,
-      });
-      const players = await this.usersService.gets({ manager: this.dataSource.manager, status: true })
-
-      const message = serverStatus.status
-        ? this.getActiveServerMessage(serverStatus, players)
-        : `Сервер ${serverStatus.name} не активен. 😞`;
-
-      await this.bot.sendMessage(chatId, message);
-    } catch (error) {
-      console.error('Ошибка получения статуса сервера:', error.message);
-      await this.bot.sendMessage(chatId, 'Сервер недоступен.');
-    }
-  }
-
-  private async handleSubscribeMenu(msg: any) {
-    const chatId = msg.chat.id;
-    return await this.dataSource.transaction(async (manager) => {
-      let user = await manager.findOne(TelegramModel, { where: { chatId } });
-      if (!user) {
-        user = await this.create(msg, manager);
+        await this.bot.sendMessage(
+          chatId,
+          `Вы успешно подписались на пользователя "${targetUsername}". ✅`,
+        );
+        await this.requestMessageService.handleStartMenu(this.bot, msg);
+        return;
       }
-      await this.bot.sendMessage(
-        chatId,
-        `Вы можете подписаться/отписаться на изменение статуса сервера!`,
-      );
-      const subscriptionButton = user.isSubscribed
-        ? { text: BotCommands.UNSUBSCRIBE_ACTION }
-        : { text: BotCommands.SUBSCRIBE_ACTION };
-      const message = 'Выберите действие:';
-      await this.bot.sendMessage(chatId, message, {
-        reply_markup: {
-          keyboard: [[subscriptionButton], [{ text: BotCommands.MENU }]],
-          resize_keyboard: true,
-          one_time_keyboard: false,
-        },
-      });
-    });
-  }
 
-  private async handleSubscribeAction(msg: any) {
-    const chatId = msg.chat.id;
-    return await this.dataSource.transaction(async (manager) => {
-      let user = await manager.findOne(TelegramModel, { where: { chatId } });
-      if (!user) {
-        user = await this.create(msg, manager);
+      if (telegram?.currentAction === ActionEnum.AWAITING_UNFOLLOW_USERNAME) {
+        const targetUsername = msg.text.trim();
+
+        if (targetUsername === BotCommands.MENU) {
+          await this.dataSource.manager.update(
+            TelegramModel,
+            { chatId: msg.chat.id },
+            { currentAction: null },
+          );
+          await this.requestMessageService.handleStartMenu(this.bot, msg);
+          return;
+        }
+
+        const targetUser = await this.usersService.get({
+          manager: this.dataSource.manager,
+          name: targetUsername,
+        });
+        if (!targetUser) {
+          await this.bot.sendMessage(
+            chatId,
+            `Пользователь с никнеймом "${targetUsername}" не найден. Попробуйте снова или нажмите "Меню" для выбора действия.`,
+          );
+          return;
+        }
+
+        await this.unsubscribe(
+          manager,
+          await this.getSub({
+            manager,
+            idTelegram: telegram.id,
+            idUser: targetUser.id,
+          }),
+        );
+        await this.dataSource.manager.update(
+          TelegramModel,
+          { chatId: msg.chat.id },
+          { currentAction: null },
+        );
+        await this.bot.sendMessage(
+          chatId,
+          `Вы успешно отписались на пользователя "${targetUsername}". ✅`,
+        );
+        await this.requestMessageService.handleStartMenu(this.bot, msg);
+        return;
       }
-      await manager.update(
-        TelegramModel,
-        { id: user.id },
-        { isSubscribed: true },
-      );
-      await this.bot.sendMessage(
-        chatId,
-        'Вы успешно подписались на обновления! ✅',
-      );
-      // Возвращаем пользователя в главное меню
-      await this.handleStartMenu(msg);
-    });
-  }
 
-  private async handleUnsubscribeAction(msg: any) {
-    const chatId = msg.chat.id;
-    return await this.dataSource.transaction(async (manager) => {
-      let user = await manager.findOne(TelegramModel, { where: { chatId } });
-      if (!user) {
-        user = await this.create(msg, manager);
+      switch (msg.text.trim()) {
+        case BotCommands.STATUS:
+          await this.requestMessageService.handleStatusCommand(this.bot, msg);
+          break;
+        case BotCommands.START:
+          break;
+        case BotCommands.SUBSCRIBE:
+          await this.requestMessageService.handleSubscribeMenu(this.bot, msg);
+          break;
+
+        case BotCommands.SUBSCRIBE_ACTION:
+          await this.requestMessageService.handleSubscribeAction(this.bot, msg);
+          break;
+
+        case BotCommands.UNSUBSCRIBE_ACTION:
+          await this.requestMessageService.handleUnsubscribeAction(
+            this.bot,
+            msg,
+          );
+          break;
+
+        case BotCommands.MENU:
+          await this.requestMessageService.handleStartMenu(this.bot, msg);
+          break;
+
+        case BotCommands.SUBSCRIBE_USER:
+          await this.requestMessageService.handleSubscribeUser(this.bot, msg);
+          break;
+        case BotCommands.FOLLOW_USER:
+          await this.requestMessageService.followUser(this.bot, msg);
+          break;
+        case BotCommands.UNFOLLOW_USER:
+          await this.requestMessageService.unfollowUser(this.bot, msg);
+          break;
+        default:
+          await this.bot.sendMessage(
+            msg.chat.id,
+            'Извиниcь, я не понимаю эту команду.',
+          );
+          break;
       }
-      await manager.update(
-        TelegramModel,
-        { id: user.id },
-        { isSubscribed: false },
-      );
-      await this.bot.sendMessage(chatId, 'Вы отписались от обновлений. ❌');
-      // Возвращаем пользователя в главное меню
-      await this.handleStartMenu(msg);
     });
   }
 
-  private getActiveServerMessage(serverStatus: ServerModel, players: UserType[]): string {
+  public getActiveServerMessage(
+    serverStatus: ServerModel,
+    players: UserType[],
+  ): string {
     const formattedDate = new Intl.DateTimeFormat('ru-RU', {
       dateStyle: 'medium',
       timeStyle: 'medium',
@@ -208,11 +186,7 @@ export class TelegramService implements OnModuleInit {
     return `Сервер ${serverStatus.name} активен! 🎉
 
 Онлайн: ${serverStatus.online}/${serverStatus.max}
-Игроки: ${
-  players.map(player =>{
-    return player.name;
-  })
-}
+Игроки: ${players.map((player) => player.name).join(', ')}
 
 Последнее обновление статуса: ${formattedDate}`;
   }
@@ -222,7 +196,6 @@ export class TelegramService implements OnModuleInit {
     isSubscribed?: boolean,
   ): Promise<void> {
     return await this.dataSource.transaction(async (manager) => {
-
       // Получаем пользователей согласно условию
       const telegrams = await this.gets({ manager, isSubscribed });
       console.log(`Отправляем сообщение ${telegrams.length} пользователям.`);
@@ -237,7 +210,6 @@ export class TelegramService implements OnModuleInit {
             error.message,
           );
 
-          // Если нужно, можно обновить статус пользователя (например, отключить подписку)
           if (error.response?.statusCode === 403) {
             await manager.delete(TelegramModel, { id: telegram.id });
             console.log(`Пользователь ${telegram.chatId} удалён.`);
@@ -253,26 +225,22 @@ export class TelegramService implements OnModuleInit {
     username: string,
   ): Promise<void> {
     return await this.dataSource.transaction(async (manager) => {
+      const telegram = await this.getOrThrow({ manager, username });
 
-      // Получаем пользователей согласно условию
-      const telegram = await manager.findOne(TelegramModel, { where: { username } });
-      if (!telegram)
-        throw new NotFoundException('Telegram not found.');
+      try {
+        await this.bot.sendMessage(telegram.chatId, message);
+        console.log(`Сообщение отправлено пользователю ${telegram.chatId}`);
+      } catch (error) {
+        console.error(
+          `Ошибка отправки сообщения пользователю ${telegram.chatId}:`,
+          error.message,
+        );
 
-        try {
-          await this.bot.sendMessage(telegram.chatId, message);
-          console.log(`Сообщение отправлено пользователю ${telegram.chatId}`);
-        } catch (error) {
-          console.error(
-            `Ошибка отправки сообщения пользователю ${telegram.chatId}:`,
-            error.message,
-          );
-
-          if (error.response?.statusCode === 403) {
-            await manager.delete(TelegramModel, { id: telegram.id });
-            console.log(`Пользователь ${telegram.chatId} удалён.`);
-          }
+        if (error.response?.statusCode === 403) {
+          await manager.delete(TelegramModel, { id: telegram.id });
+          console.log(`Пользователь ${telegram.chatId} удалён.`);
         }
+      }
     });
   }
 
@@ -290,8 +258,34 @@ export class TelegramService implements OnModuleInit {
     return await manager.find(TelegramModel, options);
   }
 
+  async get({
+    username,
+    manager,
+  }: {
+    username: string;
+    manager: EntityManager;
+  }): Promise<TelegramModel> {
+    const options: FindOneOptions<TelegramModel> = {
+      relations: {
+        subscriptions: true,
+      },
+      where: { username },
+    };
 
-  private async create(msg: any, manager: EntityManager) {
+    return await manager.findOne(TelegramModel, options);
+  }
+
+  public async getOrThrow(params: {
+    username: string;
+    manager: EntityManager;
+  }): Promise<TelegramModel> {
+    const telegram = await this.get(params);
+    if (!telegram) throw new NotFoundException('Telegram not found.');
+
+    return telegram;
+  }
+
+  public async create(msg: any, manager: EntityManager) {
     return await manager.save(
       TelegramModel,
       manager.create(TelegramModel, {
@@ -300,5 +294,66 @@ export class TelegramService implements OnModuleInit {
         chatId: msg.chat.id,
       }),
     );
+  }
+
+  async getSub({
+    manager,
+    idUser,
+    idTelegram,
+  }: {
+    manager: EntityManager;
+    idUser: string;
+    idTelegram: string;
+  }): Promise<TelegramUserSubscriptionModel> {
+    const options: FindOneOptions<TelegramUserSubscriptionModel> = {
+      relations: {
+        telegram: true,
+        user: true,
+      },
+      where: { telegram: { id: idTelegram }, user: { id: idUser } },
+    };
+
+    return await manager.findOne(TelegramUserSubscriptionModel, options);
+  }
+
+  async getSubs({
+    manager,
+    idUser,
+    idTelegram,
+  }: {
+    manager: EntityManager;
+    idUser?: string;
+    idTelegram?: string;
+  }): Promise<TelegramUserSubscriptionModel[]> {
+    const options: FindOneOptions<TelegramUserSubscriptionModel> = {
+      relations: {
+        telegram: true,
+        user: true,
+      },
+      where: { telegram: { id: idTelegram }, user: { id: idUser } },
+    };
+
+    return await manager.find(TelegramUserSubscriptionModel, options);
+  }
+
+  private async subscribe(
+    manager: EntityManager,
+    telegram: TelegramModel,
+    user: UserModel,
+  ) {
+    await manager.save(
+      TelegramUserSubscriptionModel,
+      manager.create(TelegramUserSubscriptionModel, {
+        telegram,
+        user,
+      }),
+    );
+  }
+
+  private async unsubscribe(
+    manager: EntityManager,
+    subscribe: TelegramUserSubscriptionModel,
+  ) {
+    await manager.delete(TelegramUserSubscriptionModel, { id: subscribe.id });
   }
 }
