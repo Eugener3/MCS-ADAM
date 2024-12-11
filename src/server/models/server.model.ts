@@ -34,6 +34,13 @@ export class ServerModel extends DefaultEntity {
 	public readonly name: string;
 
 	@ApiProperty({
+		example: 2,
+		description: 'Trying to connect to the server'
+	})
+	@Column({ type: 'int', default: 0 })
+	public readonly try: number;
+
+	@ApiProperty({
 		example: true,
 		description: 'Status of the server',
 	})
@@ -43,10 +50,4 @@ export class ServerModel extends DefaultEntity {
 	@ApiProperty({ description: 'List of users' })
 	@OneToMany(() => UserModel, (user) => user.server)
 	public readonly users: UserModel[];
-
-	// @OneToMany(() => OrderHistoryModel, (history) => history.order, {
-	// 	cascade: true,
-	// 	onDelete: 'CASCADE',
-	// })
-	// public readonly history: OrderHistoryModel[];
 }

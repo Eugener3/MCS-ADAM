@@ -146,7 +146,7 @@ export class ServerService {
         await manager.update(
           ServerModel,
           { name: this.name },
-          { status: true },
+          { status: true, try: 0 },
         );
       }
       await manager.update(
@@ -163,18 +163,29 @@ export class ServerService {
       const server = await this.getOrThrow({ manager, name: this.name });
 
       if (server.status) {
-        this.logger.debug(
-          `Server status: ${server.status}\n SERVER NOT WORKING NOW`,
-        );
-        await this.telegramService.sendBroadcastMessage(
-          '❌ Сервер, к сожалению, приостановил работу((( ❌',
-          true,
-        );
-        await manager.update(
-          ServerModel,
-          { name: this.name },
-          { status: false },
-        );
+        if (server.try < 3) {
+          this.logger.warn(
+            `Server status: ${server.status}\n TRYING TO CONNECT...`,
+          );
+          await manager.update(
+            ServerModel,
+            { name: this.name },
+            { try: server.try + 1 },
+          );
+        } else {
+          this.logger.debug(
+            `Server status: ${server.status}\n SERVER NOT WORKING NOW`,
+          );
+          await this.telegramService.sendBroadcastMessage(
+            '❌ Сервер, к сожалению, приостановил работу((( ❌',
+            true,
+          );
+          await manager.update(
+            ServerModel,
+            { name: this.name },
+            { status: false },
+          );
+        }
       }
     }
   }
