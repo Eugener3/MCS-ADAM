@@ -119,37 +119,31 @@ export class RequestMessageService {
 
   public async handleSubscribeAction(bot: Bot, msg: any) {
     const chatId = msg.chat.id;
-    return await this.dataSource.transaction(async (manager) => {
-      let user = await manager.findOne(TelegramModel, { where: { chatId } });
-      if (!user) {
-        user = await this.telegramService.create(msg, manager);
+      let telegram = await this.dataSource.getRepository(TelegramModel).findOne({
+        where: { chatId },
+      });
+      if (!telegram) {
+        telegram = await this.telegramService.create(msg, this.dataSource.manager);
       }
-      await manager.update(
-        TelegramModel,
-        { id: user.id },
+      await this.dataSource.getRepository(TelegramModel).update(
+        { id: telegram.id },
         { isSubscribed: true },
       );
       await bot.sendMessage(chatId, 'Вы успешно подписались на обновления! ✅');
-      // Возвращаем пользователя в главное меню
       await this.handleStartMenu(bot, msg);
-    });
   }
 
   public async handleUnsubscribeAction(bot: Bot, msg: any) {
     const chatId = msg.chat.id;
-    return await this.dataSource.transaction(async (manager) => {
-      let user = await manager.findOne(TelegramModel, { where: { chatId } });
-      if (!user) {
-        user = await this.telegramService.create(msg, manager);
+      let telegram = await this.dataSource.getRepository(TelegramModel).findOne({
+        where: { chatId },
+      });
+      if (!telegram) {
+        telegram = await this.telegramService.create(msg, this.dataSource.manager);
       }
-      await manager.update(
-        TelegramModel,
-        { id: user.id },
-        { isSubscribed: false },
-      );
+      await this.dataSource.getRepository(TelegramModel).update({ id: telegram.id }, { isSubscribed: false });
       await bot.sendMessage(chatId, 'Вы отписались от обновлений. ❌');
       await this.handleStartMenu(bot, msg);
-    });
   }
 
   public async handleSubscribeUser(bot: Bot, msg: any) {
