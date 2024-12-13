@@ -7,6 +7,7 @@ import { EnvFilePathModule } from './providers/envpiflepath.module';
 import { PostgresModule } from './providers/postgres.module';
 import { TelegramModule } from './telegram/telegram.module';
 import { UsersModule } from './users/users.module';
+import { StatsModule } from './stats/stats.module';
 
 @Module({
   imports: [
@@ -17,6 +18,7 @@ import { UsersModule } from './users/users.module';
 		PostgresModule,
     TelegramModule,
     UsersModule,
+    StatsModule,
   ],
   providers: [TaskService]
 })

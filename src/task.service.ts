@@ -14,7 +14,7 @@ export class TaskService{
 
   ) {}
 
-  @Cron(CronExpression.EVERY_5_SECONDS)
+  @Cron(CronExpression.EVERY_30_SECONDS)
   async handleFiveSecondsCron() {
     const host = this.configService.getOrThrow('MINECRAFT_HOST');
     const port = this.configService.getOrThrow('MINECRAFT_PORT');
