@@ -14,8 +14,6 @@ import { ServerType } from './ro/server.ro';
 import { TelegramService } from 'src/telegram/telegram.service';
 import { ConfigService } from '@nestjs/config';
 import { UsersService } from 'src/users/users.service';
-import { UserType } from 'src/users/ro/user.ro';
-
 @Injectable()
 export class ServerService {
   private readonly logger = new Logger(ServerService.name);
@@ -163,7 +161,7 @@ export class ServerService {
       const server = await this.getOrThrow({ manager, name: this.name });
 
       if (server.status) {
-        if (server.try < 3) {
+        if (server.try < 15) {
           this.logger.warn(
             `Server status: ${server.status}\n TRYING TO CONNECT...`,
           );
